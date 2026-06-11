@@ -447,10 +447,11 @@
 <header>
   <div class="logo-text">Gasto<span>Zero</span></div>
   <select class="mes-selector" id="mesSel" onchange="renderTudo()">
-    <option value="2025-06">Jun 2025</option>
-    <option value="2025-05">Mai 2025</option>
-    <option value="2025-04">Abr 2025</option>
-    <option value="2025-07">Jul 2025</option>
+    <option value="2026-06" selected>Jun 2026</option>
+    <option value="2026-05">Mai 2026</option>
+    <option value="2026-04">Abr 2026</option>
+    <option value="2026-07">Jul 2026</option>
+    <option value="2025-12">Dez 2025</option>
   </select>
 </header>
 
@@ -513,7 +514,7 @@
       </div>
       <div class="form-group">
         <label>Valor (R$)</label>
-        <input type="number" id="fValor" placeholder="0,00" min="0" step="0.01">
+        <input type="number" id="fValor" placeholder="Ex: 50.00" min="0" step="0.01">
       </div>
       <div class="form-group">
         <label>Categoria</label>
@@ -588,17 +589,19 @@
   };
 
   // ── INIT ─────────────────────────────────────────────────
+  // Seta a data de hoje no campo de data automaticamente
   document.getElementById('fData').value = new Date().toISOString().split('T')[0];
 
+  // Se não houver dados, cria alguns exemplos para o ano de 2026
   if (lancamentos.length === 0) {
     lancamentos = [
-      { id: Date.now()+1, tipo:'entrada', desc:'Salário mensal',      cat:'Salário',        valor:3500, data:'2025-06-01' },
-      { id: Date.now()+2, tipo:'saida',   desc:'Parcela Moto',        cat:'Moto (Parcela)', valor:1000, data:'2025-06-10' },
-      { id: Date.now()+3, tipo:'saida',   desc:'Aluguel',             cat:'Moradia',        valor:800,  data:'2025-06-05' },
-      { id: Date.now()+4, tipo:'saida',   desc:'Mercado semanal',     cat:'Alimentação',    valor:250,  data:'2025-06-07' },
-      { id: Date.now()+5, tipo:'saida',   desc:'Conta de energia',    cat:'Contas Fixas',   valor:180,  data:'2025-06-08' },
-      { id: Date.now()+6, tipo:'entrada', desc:'Freelance extra',     cat:'Freelance',      valor:500,  data:'2025-06-11' },
-      { id: Date.now()+7, tipo:'saida',   desc:'Gasolina',            cat:'Combustível',    valor:80,   data:'2025-06-09' },
+      { id: Date.now()+1, tipo:'entrada', desc:'Salário mensal',      cat:'Salário',        valor:3500, data:'2026-06-01' },
+      { id: Date.now()+2, tipo:'saida',   desc:'Parcela Moto',        cat:'Moto (Parcela)', valor:1000, data:'2026-06-10' },
+      { id: Date.now()+3, tipo:'saida',   desc:'Aluguel',             cat:'Moradia',        valor:800,  data:'2026-06-05' },
+      { id: Date.now()+4, tipo:'saida',   desc:'Mercado semanal',     cat:'Alimentação',    valor:250,  data:'2026-06-07' },
+      { id: Date.now()+5, tipo:'saida',   desc:'Conta de energia',    cat:'Contas Fixas',   valor:180,  data:'2026-06-08' },
+      { id: Date.now()+6, tipo:'entrada', desc:'Freelance extra',     cat:'Freelance',      valor:500,  data:'2026-06-11' },
+      { id: Date.now()+7, tipo:'saida',   desc:'Gasolina',            cat:'Combustível',    valor:80,   data:'2026-06-09' },
     ];
     salvar();
   }
@@ -618,7 +621,9 @@
   }
 
   // ── FUNÇÕES DE AÇÃO ──────────────────────────────────────
-  function getMes() { return document.getElementById('mesSel').value; }
+  function getMes() { 
+    return document.getElementById('mesSel').value; 
+  }
 
   function getLancamentosMes() {
     const mes = getMes();
@@ -640,12 +645,14 @@
 
   function addLancamento() {
     const desc  = document.getElementById('fDesc').value.trim();
-    const valor = parseFloat(document.getElementById('fValor').value);
+    // Troca vírgula por ponto para evitar erros de digitação e formata para número
+    const valorRaw = document.getElementById('fValor').value.replace(',', '.');
+    const valor = parseFloat(valorRaw);
     const cat   = document.getElementById('fCat').value;
     const data  = document.getElementById('fData').value;
 
     if (!desc)  { toast('⚠️ Adicione uma descrição'); return; }
-    if (!valor || valor <= 0) { toast('⚠️ Informe um valor válido'); return; }
+    if (!valor || valor <= 0 || isNaN(valor)) { toast('⚠️ Informe um valor válido (ex: 50.00)'); return; }
     if (!data)  { toast('⚠️ Selecione a data'); return; }
 
     lancamentos.unshift({ id: Date.now(), tipo, desc, cat, valor, data });
@@ -665,7 +672,7 @@
   }
 
   function limparTudo() {
-    if (!confirm('Apagar todos os lançamentos?')) return;
+    if (!confirm('Apagar todos os lançamentos? Isso não pode ser desfeito.')) return;
     lancamentos = [];
     salvar();
     renderTudo();
@@ -686,8 +693,4 @@
     const pct    = totalE > 0 ? Math.min((totalS/totalE)*100, 100) : 0;
 
     // 1. Atualizar Cards de Resumo
-    document.getElementById('totalEntrada').textContent = fmt(totalE);
-    document.getElementById('totalSaida').textContent   = fmt(totalS);
-    document.getElementById('saldo').textContent        = fmt(saldo);
-    document.getElementById('qtdEntrada').textContent   = itens.filter(l=>l.tipo==='entrada').length + ' registro(s)';
-    document.getElementById('qtdSaida').textContent     = itens.filter(l=>l.tipo==
+    document.getElementById('tot
