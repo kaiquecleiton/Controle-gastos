@@ -447,14 +447,14 @@
 <header>
   <div class="logo-text">Gasto<span>Zero</span></div>
   <select class="mes-selector" id="mesSel" onchange="renderTudo()">
-    <option value="2026-06" selected>Jun 2026</option>
-    <option value="2026-05">Mai 2026</option>
-    <option value="2026-04">Abr 2026</option>
-    <option value="2026-07">Jul 2026</option>
-    <option value="2025-12">Dez 2025</option>
+    <option value="2025-06">Jun 2025</option>
+    <option value="2025-05">Mai 2025</option>
+    <option value="2025-04">Abr 2025</option>
+    <option value="2025-07">Jul 2025</option>
   </select>
 </header>
 
+<!-- CARDS RESUMO -->
 <div class="resumo" id="resumo">
   <div class="resumo-card">
     <div class="resumo-label">Entradas</div>
@@ -473,6 +473,7 @@
   </div>
 </div>
 
+<!-- BARRA ORÇAMENTO -->
 <div class="barra-wrap">
   <div class="barra-header">
     <span class="barra-titulo">Uso do orçamento mensal</span>
@@ -485,6 +486,7 @@
 
 <div class="main">
 
+  <!-- PRIORIDADE MOTO -->
   <div class="priority-box">
     <div class="priority-icon">⚠️</div>
     <div style="flex:1">
@@ -497,6 +499,7 @@
     </div>
   </div>
 
+  <!-- FORM LANÇAMENTO -->
   <div class="form-card">
     <div class="form-title">➕ Novo lançamento</div>
 
@@ -514,7 +517,7 @@
       </div>
       <div class="form-group">
         <label>Valor (R$)</label>
-        <input type="number" id="fValor" placeholder="Ex: 50.00" min="0" step="0.01">
+        <input type="number" id="fValor" placeholder="0,00" min="0" step="0.01">
       </div>
       <div class="form-group">
         <label>Categoria</label>
@@ -542,6 +545,7 @@
     <button class="btn-add" onclick="addLancamento()">Adicionar lançamento</button>
   </div>
 
+  <!-- CATEGORIAS -->
   <div class="cats-section">
     <div class="section-header">
       <div class="section-title">Gastos por categoria</div>
@@ -549,6 +553,7 @@
     <div id="catList"><div class="empty-state"><div class="empty-icon">📊</div>Nenhum gasto registrado</div></div>
   </div>
 
+  <!-- HISTÓRICO -->
   <div class="historico-card">
     <div class="historico-header">
       <div class="section-title">Histórico</div>
@@ -589,41 +594,26 @@
   };
 
   // ── INIT ─────────────────────────────────────────────────
-  // Seta a data de hoje no campo de data automaticamente
   document.getElementById('fData').value = new Date().toISOString().split('T')[0];
 
-  // Se não houver dados, cria alguns exemplos para o ano de 2026
+  // Dados de exemplo se vazio
   if (lancamentos.length === 0) {
     lancamentos = [
-      { id: Date.now()+1, tipo:'entrada', desc:'Salário mensal',      cat:'Salário',        valor:3500, data:'2026-06-01' },
-      { id: Date.now()+2, tipo:'saida',   desc:'Parcela Moto',        cat:'Moto (Parcela)', valor:1000, data:'2026-06-10' },
-      { id: Date.now()+3, tipo:'saida',   desc:'Aluguel',             cat:'Moradia',        valor:800,  data:'2026-06-05' },
-      { id: Date.now()+4, tipo:'saida',   desc:'Mercado semanal',     cat:'Alimentação',    valor:250,  data:'2026-06-07' },
-      { id: Date.now()+5, tipo:'saida',   desc:'Conta de energia',    cat:'Contas Fixas',   valor:180,  data:'2026-06-08' },
-      { id: Date.now()+6, tipo:'entrada', desc:'Freelance extra',     cat:'Freelance',      valor:500,  data:'2026-06-11' },
-      { id: Date.now()+7, tipo:'saida',   desc:'Gasolina',            cat:'Combustível',    valor:80,   data:'2026-06-09' },
+      { id: Date.now()+1, tipo:'entrada', desc:'Salário mensal',      cat:'Salário',        valor:3500, data:'2025-06-01' },
+      { id: Date.now()+2, tipo:'saida',   desc:'Parcela Moto',        cat:'Moto (Parcela)', valor:1000, data:'2025-06-10' },
+      { id: Date.now()+3, tipo:'saida',   desc:'Aluguel',             cat:'Moradia',        valor:800,  data:'2025-06-05' },
+      { id: Date.now()+4, tipo:'saida',   desc:'Mercado semanal',     cat:'Alimentação',    valor:250,  data:'2025-06-07' },
+      { id: Date.now()+5, tipo:'saida',   desc:'Conta de energia',    cat:'Contas Fixas',   valor:180,  data:'2025-06-08' },
+      { id: Date.now()+6, tipo:'entrada', desc:'Freelance extra',     cat:'Freelance',      valor:500,  data:'2025-06-11' },
+      { id: Date.now()+7, tipo:'saida',   desc:'Gasolina',            cat:'Combustível',    valor:80,   data:'2025-06-09' },
     ];
     salvar();
   }
 
   renderTudo();
 
-  // ── FUNÇÕES DE FORMATAÇÃO E ALERTA ───────────────────────
-  function fmt(valor) {
-    return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  }
-
-  function toast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    setTimeout(() => { t.classList.remove('show'); }, 3000);
-  }
-
-  // ── FUNÇÕES DE AÇÃO ──────────────────────────────────────
-  function getMes() { 
-    return document.getElementById('mesSel').value; 
-  }
+  // ── FUNÇÕES ───────────────────────────────────────────────
+  function getMes() { return document.getElementById('mesSel').value; }
 
   function getLancamentosMes() {
     const mes = getMes();
@@ -635,6 +625,7 @@
     document.getElementById('btnEntrada').className = 'tipo-btn entrada' + (t==='entrada'?' ativo':'');
     document.getElementById('btnSaida').className   = 'tipo-btn saida'   + (t==='saida'  ?' ativo':'');
 
+    // Ajusta categorias ao tipo
     const cat = document.getElementById('fCat');
     const entradasCats = ['Salário','Freelance'];
     [...cat.options].forEach(o => {
@@ -645,14 +636,12 @@
 
   function addLancamento() {
     const desc  = document.getElementById('fDesc').value.trim();
-    // Troca vírgula por ponto para evitar erros de digitação e formata para número
-    const valorRaw = document.getElementById('fValor').value.replace(',', '.');
-    const valor = parseFloat(valorRaw);
+    const valor = parseFloat(document.getElementById('fValor').value);
     const cat   = document.getElementById('fCat').value;
     const data  = document.getElementById('fData').value;
 
     if (!desc)  { toast('⚠️ Adicione uma descrição'); return; }
-    if (!valor || valor <= 0 || isNaN(valor)) { toast('⚠️ Informe um valor válido (ex: 50.00)'); return; }
+    if (!valor || valor <= 0) { toast('⚠️ Informe um valor válido'); return; }
     if (!data)  { toast('⚠️ Selecione a data'); return; }
 
     lancamentos.unshift({ id: Date.now(), tipo, desc, cat, valor, data });
@@ -672,7 +661,7 @@
   }
 
   function limparTudo() {
-    if (!confirm('Apagar todos os lançamentos? Isso não pode ser desfeito.')) return;
+    if (!confirm('Apagar todos os lançamentos?')) return;
     lancamentos = [];
     salvar();
     renderTudo();
@@ -683,14 +672,109 @@
     localStorage.setItem('gastozero_lanc', JSON.stringify(lancamentos));
   }
 
-  // ── RENDERIZAÇÃO DA PÁGINA ────────────────────────────────
+  // ── RENDER ────────────────────────────────────────────────
   function renderTudo() {
     const itens = getLancamentosMes();
 
     const totalE = itens.filter(l=>l.tipo==='entrada').reduce((a,b)=>a+b.valor,0);
     const totalS = itens.filter(l=>l.tipo==='saida')  .reduce((a,b)=>a+b.valor,0);
     const saldo  = totalE - totalS;
-    const pct    = totalE > 0 ? Math.min((totalS/totalE)*100, 100) : 0;
+    const pct    = totalE > 0 ? Math.min((totalS/totalE)*100,100) : 0;
 
-    // 1. Atualizar Cards de Resumo
-    document.getElementById('tot
+// Cards resumo
+    document.getElementById('totalEntrada').textContent = fmt(totalE);
+    document.getElementById('totalSaida').textContent   = fmt(totalS);
+    document.getElementById('saldo').textContent        = fmt(saldo);
+    document.getElementById('qtdEntrada').textContent   = itens.filter(l=>l.tipo==='entrada').length + ' registro(s)';
+    document.getElementById('qtdSaida').textContent     = itens.filter(l=>l.tipo==='saida').length  + ' registro(s)';
+
+    const saldoEl = document.getElementById('saldo');
+    saldoEl.className = 'resumo-valor ' + (saldo >= 0 ? 'verde' : 'vermelho');
+    document.getElementById('saldoStatus').textContent = saldo >= 0 ? '✓ no positivo' : '⚠ no negativo';
+
+    // Barra
+    document.getElementById('barraPct').textContent = pct.toFixed(0) + '%';
+    const fill = document.getElementById('barraFill');
+    fill.style.width = pct + '%';
+    fill.style.background = pct < 70 ? '#00C896' : pct < 90 ? '#FFB800' : '#FF4D6D';
+
+    // Status moto
+    const motoPago = itens.some(l => l.tipo==='saida' && l.cat==='Moto (Parcela)' && l.valor >= 1000);
+    const motoEl = document.getElementById('motoStatus');
+    motoEl.textContent = motoPago ? '✅ Pago' : '⏳ Pendente';
+    motoEl.className = 'moto-status ' + (motoPago ? 'status-pago' : 'status-pendente');
+
+    // Categorias
+    renderCategorias(itens.filter(l=>l.tipo==='saida'));
+
+    // Histórico
+    renderHistorico(itens);
+  }
+
+  function renderCategorias(saidas) {
+    const el = document.getElementById('catList');
+    if (!saidas.length) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div>Nenhum gasto registrado</div>';
+      return;
+    }
+
+    const mapa = {};
+    saidas.forEach(l => { mapa[l.cat] = (mapa[l.cat] || 0) + l.valor; });
+    const total = Object.values(mapa).reduce((a,b)=>a+b,0);
+
+    const sorted = Object.entries(mapa).sort((a,b)=>b[1]-a[1]);
+    el.innerHTML = sorted.map(([cat, val]) => {
+      const cor  = CORES_CAT[cat] || '#6B7280';
+      const pct  = total > 0 ? (val/total)*100 : 0;
+      return `
+        <div class="cat-row">
+          <div class="cat-dot" style="background:${cor}"></div>
+          <div class="cat-nome">${EMOJIS_CAT[cat]||'•'} ${cat}</div>
+          <div class="cat-barra-bg"><div class="cat-barra-fill" style="width:${pct}%;background:${cor}"></div></div>
+          <div class="cat-valor">${fmt(val)}</div>
+        </div>`;
+    }).join('');
+  }
+
+  function renderHistorico(itens) {
+    const el = document.getElementById('listaLanc');
+    if (!itens.length) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div>Nenhum lançamento ainda.<br>Adicione sua primeira entrada ou saída.</div>';
+      return;
+    }
+
+    const sorted = [...itens].sort((a,b) => new Date(b.data) - new Date(a.data));
+    el.innerHTML = sorted.map(l => {
+      const cor  = l.tipo==='entrada' ? '#00C896' : '#FF4D6D';
+      const sinal = l.tipo==='entrada' ? '+' : '−';
+      const emoji = EMOJIS_CAT[l.cat] || '•';
+      const dataFmt = new Date(l.data + 'T12:00:00').toLocaleDateString('pt-BR', {day:'2-digit',month:'short'});
+      return `
+        <div class="lancamento-item">
+          <div class="lanc-icon" style="background:${cor}22">${emoji}</div>
+          <div class="lanc-body">
+            <div class="lanc-desc">${l.desc}</div>
+            <div class="lanc-meta">${l.cat} · ${dataFmt}</div>
+          </div>
+          <div class="lanc-valor ${l.tipo}">${sinal} ${fmt(l.valor)}</div>
+          <button class="btn-del" onclick="deletar(${l.id})" title="Remover">×</button>
+        </div>`;
+    }).join('');
+  }
+
+  function fmt(v) {
+    return v.toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+  }
+
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2500);
+  }
+
+  // Init tipo para mostrar categorias corretas
+  setTipo('saida');
+</script>
+</body>
+</html>
