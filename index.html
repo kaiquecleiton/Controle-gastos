@@ -454,7 +454,6 @@
   </select>
 </header>
 
-<!-- CARDS RESUMO -->
 <div class="resumo" id="resumo">
   <div class="resumo-card">
     <div class="resumo-label">Entradas</div>
@@ -473,7 +472,6 @@
   </div>
 </div>
 
-<!-- BARRA ORÇAMENTO -->
 <div class="barra-wrap">
   <div class="barra-header">
     <span class="barra-titulo">Uso do orçamento mensal</span>
@@ -486,7 +484,6 @@
 
 <div class="main">
 
-  <!-- PRIORIDADE MOTO -->
   <div class="priority-box">
     <div class="priority-icon">⚠️</div>
     <div style="flex:1">
@@ -499,7 +496,6 @@
     </div>
   </div>
 
-  <!-- FORM LANÇAMENTO -->
   <div class="form-card">
     <div class="form-title">➕ Novo lançamento</div>
 
@@ -545,7 +541,6 @@
     <button class="btn-add" onclick="addLancamento()">Adicionar lançamento</button>
   </div>
 
-  <!-- CATEGORIAS -->
   <div class="cats-section">
     <div class="section-header">
       <div class="section-title">Gastos por categoria</div>
@@ -553,7 +548,6 @@
     <div id="catList"><div class="empty-state"><div class="empty-icon">📊</div>Nenhum gasto registrado</div></div>
   </div>
 
-  <!-- HISTÓRICO -->
   <div class="historico-card">
     <div class="historico-header">
       <div class="section-title">Histórico</div>
@@ -596,7 +590,6 @@
   // ── INIT ─────────────────────────────────────────────────
   document.getElementById('fData').value = new Date().toISOString().split('T')[0];
 
-  // Dados de exemplo se vazio
   if (lancamentos.length === 0) {
     lancamentos = [
       { id: Date.now()+1, tipo:'entrada', desc:'Salário mensal',      cat:'Salário',        valor:3500, data:'2025-06-01' },
@@ -612,7 +605,19 @@
 
   renderTudo();
 
-  // ── FUNÇÕES ───────────────────────────────────────────────
+  // ── FUNÇÕES DE FORMATAÇÃO E ALERTA ───────────────────────
+  function fmt(valor) {
+    return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => { t.classList.remove('show'); }, 3000);
+  }
+
+  // ── FUNÇÕES DE AÇÃO ──────────────────────────────────────
   function getMes() { return document.getElementById('mesSel').value; }
 
   function getLancamentosMes() {
@@ -625,7 +630,6 @@
     document.getElementById('btnEntrada').className = 'tipo-btn entrada' + (t==='entrada'?' ativo':'');
     document.getElementById('btnSaida').className   = 'tipo-btn saida'   + (t==='saida'  ?' ativo':'');
 
-    // Ajusta categorias ao tipo
     const cat = document.getElementById('fCat');
     const entradasCats = ['Salário','Freelance'];
     [...cat.options].forEach(o => {
@@ -672,22 +676,18 @@
     localStorage.setItem('gastozero_lanc', JSON.stringify(lancamentos));
   }
 
-  // ── RENDER ────────────────────────────────────────────────
+  // ── RENDERIZAÇÃO DA PÁGINA ────────────────────────────────
   function renderTudo() {
     const itens = getLancamentosMes();
 
     const totalE = itens.filter(l=>l.tipo==='entrada').reduce((a,b)=>a+b.valor,0);
     const totalS = itens.filter(l=>l.tipo==='saida')  .reduce((a,b)=>a+b.valor,0);
     const saldo  = totalE - totalS;
-    const pct    = totalE > 0 ? Math.min((totalS/totalE)*100,100) : 0;
+    const pct    = totalE > 0 ? Math.min((totalS/totalE)*100, 100) : 0;
 
-    // Cards resumo
+    // 1. Atualizar Cards de Resumo
     document.getElementById('totalEntrada').textContent = fmt(totalE);
     document.getElementById('totalSaida').textContent   = fmt(totalS);
     document.getElementById('saldo').textContent        = fmt(saldo);
     document.getElementById('qtdEntrada').textContent   = itens.filter(l=>l.tipo==='entrada').length + ' registro(s)';
-    document.getElementById('qtdSaida').textContent     = itens.filter(l=>l.tipo==='saida').length  + ' registro(s)';
-
-    const saldoEl = document.getElementById('saldo');
-    saldoEl.className = 'resumo-valor ' + (saldo >= 0 ? 'verde' : 'vermelho');
-    
+    document.getElementById('qtdSaida').textContent     = itens.filter(l=>l.tipo==
