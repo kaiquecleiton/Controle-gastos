@@ -79,6 +79,7 @@ input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline
 .btn.small{min-height:36px;padding:6px 10px;font-size:13px}
 .btn.danger{color:var(--bad);border-color:var(--bad)}
 .btn:hover{border-color:var(--accent)}
+.btn:disabled{opacity:.65;cursor:wait}
 .hero{display:flex;flex-direction:column;gap:12px}
 .hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .hero .mes{font-size:13px;color:var(--ink2)}
@@ -343,8 +344,7 @@ footer{display:flex;justify-content:space-between;align-items:center;gap:10px;fl
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
 import {
   getAuth,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   GoogleAuthProvider,
   signOut,
   onAuthStateChanged
@@ -404,6 +404,7 @@ let saveTimer = null;
 let resetArmed = false;
 let resetTimer = null;
 let saveError = false;
+let loginInProgress = false;
 
 const $ = id => document.getElementById(id);
 const clone = o => JSON.parse(JSON.stringify(o));
@@ -612,7 +613,7 @@ function snapData() {
   };
 }
 
-/* SALVAMENTO SEGURO NO FIRESTORE */
+/* SALVAMENTO NO FIRESTORE */
 
 function save() {
   if (!userRef || !state) return;
@@ -1350,26 +1351,73 @@ function bindMoney(id,key) {
   });
 
   $(id).addEventListener("blur",function() {
-    syncInputs();
+    if (state) syncInputs();
   });
 }
 
 /* EVENTOS DOS FORMULÁRIOS */
 
-$("google-login-btn").addEventListener("click",async function() {
+/*
+  O login utiliza pop-up em vez de redirecionamento.
+  Isso evita depender do retorno de uma navegação para
+  a mesma página, que pode falhar em alguns navegadores.
+*/
+$("google-login-btn").addEventListener("click", async function() {
+  const button = $("google-login-btn");
+
+  if (loginInProgress) return;
+
+  loginInProgress = true;
   showLoginError("");
+  button.disabled = true;
+  button.textContent = "A abrir o Google...";
 
   try {
-    await signInWithRedirect(auth,new GoogleAuthProvider());
+    const provider = new GoogleAuthProvider();
+
+    provider.setCustomParameters({
+      prompt:"select_account"
+    });
+
+    await signInWithPopup(auth,provider);
+    showLoginError("");
   } catch (error) {
-    console.error("Erro ao iniciar login:",error);
-    showLoginError(error.message || "Não foi possível iniciar o login Google.");
+    console.error("Erro no login Google:",error);
+
+    const messages = {
+      "auth/popup-closed-by-user":
+        "A janela do Google foi fechada antes de concluir o login.",
+      "auth/popup-blocked":
+        "O navegador bloqueou a janela. Permita pop-ups e tente novamente.",
+      "auth/unauthorized-domain":
+        "O domínio deste site não está autorizado no Firebase. Adicione o domínio da Vercel em Authentication > Settings > Authorized domains.",
+      "auth/operation-not-allowed":
+        "O login Google não está ativado no Firebase Authentication.",
+      "auth/network-request-failed":
+        "Falha de conexão. Verifique a internet e tente novamente.",
+      "auth/cancelled-popup-request":
+        "Já existe uma janela de login aberta. Conclua essa tentativa.",
+      "auth/account-exists-with-different-credential":
+        "Já existe uma conta com este e-mail usando outro método de login."
+    };
+
+    showLoginError(
+      messages[error.code] ||
+      "Não foi possível entrar com o Google. Código: " +
+      (error.code || "erro desconhecido")
+    );
+  } finally {
+    loginInProgress = false;
+    button.disabled = false;
+    button.textContent = "Entrar com a Conta Google";
   }
 });
 
 $("logout-btn").addEventListener("click",handleLogout);
 
 $("seed").addEventListener("click",function() {
+  if (!currentUser || !userRef) return;
+
   state = clone(DEFAULT);
   phase = "done";
   sel = null;
@@ -1426,22 +1474,28 @@ $("reset").addEventListener("click",function() {
   render();
 });
 
-/* RETORNO DO LOGIN GOOGLE */
-
-getRedirectResult(auth).catch(function(error) {
-  console.error("Erro no retorno do login:",error);
-  showLoginError("Erro no login: " + (error.message || error.code));
-});
-
 /* ESTADO DA AUTENTICAÇÃO */
 
 onAuthStateChanged(auth,function(user) {
   if (user) {
     showLoginError("");
+
+    /*
+      Evita reinstalar a sincronização caso o Firebase
+      notifique novamente o mesmo usuário.
+    */
+    if (currentUser && currentUser.uid === user.uid && unsubscribeSnapshot) {
+      return;
+    }
+
     setupCloudSync(user);
     return;
   }
 
+  /*
+    Ao receber estado sem usuário, apenas mostra a tela
+    de login. Não chama signOut aqui, evitando ciclos.
+  */
   if (unsubscribeSnapshot) {
     unsubscribeSnapshot();
     unsubscribeSnapshot = null;
@@ -1463,7 +1517,6 @@ onAuthStateChanged(auth,function(user) {
   $("empty").hidden = true;
   $("ready").hidden = true;
 });
-
 </script>
 </body>
 </html>
