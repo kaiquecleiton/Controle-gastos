@@ -261,7 +261,7 @@ footer{display:flex;justify-content:space-between;align-items:center;gap:10px;fl
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
-  import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
+  import { getAuth, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
   import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -414,7 +414,8 @@ footer{display:flex;justify-content:space-between;align-items:center;gap:10px;fl
 
   function setupCloudSync(user){
     currentUser = user;
-    $('auth-header').style.display = 'flex';$('user-email').textContent = user.email;
+    $('auth-header').style.display = 'flex';
+    $('user-email').textContent = user.email;
     $('login-screen').hidden = true;
     phase = 'loading';
     render();
@@ -445,4 +446,356 @@ footer{display:flex;justify-content:space-between;align-items:center;gap:10px;fl
   function handleLogout(){
     if(unsubscribeSnapshot) unsubscribeSnapshot();
     signOut(auth).then(function(){
-      currentUser =
+      currentUser = null;
+      userRef = null;
+      state = null;
+      $('auth-header').style.display = 'none';
+      $('login-screen').hidden = false;
+      $('ready').hidden = true;
+      $('loading').hidden = true;
+      $('empty').hidden = true;
+    });
+  }
+
+  function render(){
+    $('login-screen').hidden = !!currentUser;
+    $('loading').hidden = phase !== 'loading' || !currentUser;
+    $('empty').hidden = !(phase === 'done' && !state && currentUser);
+    $('ready').hidden = !(phase === 'done' && state && currentUser);
+    if(!(phase === 'done' && state && currentUser)) return;
+    var r = windowRange();
+    if(sel == null || sel < r[0] || sel > r[1]) sel = r[0];
+    syncInputs();
+    renderHero(); renderStats(r); renderMonths(r); renderItems(); renderExtras(r); showTab();
+    if(!editingId && !$('f-inicio').value) $('f-inicio').value = ymStr(r[0]);
+    if(!xEditing && !$('x-inicio').value) $('x-inicio').value = ymStr(r[0]);
+  }
+  function syncInputs(){
+    if(document.activeElement !== $('renda')) $('renda').value = plain(state.renda);
+    if(document.activeElement !== $('cartao')) $('cartao').value = plain(state.cartao);
+  }
+
+  function renderHero(){
+    var d = monthData(sel), t = tone(d.sobra);
+    var lines = [h('li', null, h('span', null, 'Renda mensal'), h('span', {class: 'v'}, money(state.renda)))];
+    d.extraRows.forEach(function(x){
+      lines.push(h('li', null, h('i', {class: 'sw', style: 'background:var(--sobra)'}), h('span', null, x.x.nome), h('span', {class: 'v', style: 'color:var(--good)'}, '+' + money(x.v))));
+    });
+    d.rows.slice().sort(function(a, b){ return b.v - a.v; }).forEach(function(x){
+      lines.push(h('li', null, h('i', {class: 'sw', style: 'background:var(--s' + ((x.it.c % 8) + 1) + ')'}), h('span', null, x.it.nome), h('span', {class: 'v'}, '-' + money(x.v))));
+    });
+    if(!d.rows.length) lines.push(h('li', null, h('span', {style: 'color:var(--mute)'}, 'Nenhum gasto neste mês.')));
+    lines.push(h('li', {class: 'total'}, h('span', null, 'Total de gastos'), h('span', {class: 'v'}, money(d.total))));
+    var hero = $('hero');
+    hero.replaceChildren(
+      h('div', {class: 'hero-top'},
+        h('div', null, h('div', {class: 'mes'}, 'Sobra em ' + mLong(sel)), h('div', {class: 'big ' + t}, money(d.sobra))),
+        h('span', {class: 'pill ' + t}, toneLabel(d.sobra))),
+      h('ul', {class: 'lines'}, lines)
+    );
+  }
+
+  function renderStats(r){
+    var from = Math.max(r[0], curYm()), rest = 0, last = null;
+    state.items.forEach(function(it){
+      if(it.tipo !== 'divida') return;
+      for(var m = from; m <= r[1]; m++) rest += amountIn(it, m);
+      var e = endOf(it); if(last == null || e > last) last = e;
+    });
+    $('stats').replaceChildren(
+      h('div', {class: 'stat'}, h('div', {class: 'k'}, 'Falta pagar das dívidas'), h('div', {class: 'n'}, money(rest))),
+      h('div', {class: 'stat'}, h('div', {class: 'k'}, 'Livre das dívidas em'), h('div', {class: 'n'}, last == null ? 'Sem dívidas' : mShort(last) + '/' + Math.floor(last / 12)))
+    );
+  }
+
+  function renderMonths(r){
+    var out = [];
+    for(var m = r[0]; m <= r[1]; m++){
+      (function(m){
+        var d = monthData(m), t = tone(d.sobra), segs = [];
+        d.rows.forEach(function(x){ segs.push(h('i', {style: 'flex:' + x.v + ';background:var(--s' + ((x.it.c % 8) + 1) + ')'})); });
+        if(d.sobra > 0) segs.push(h('i', {class: 'sobra', style: 'flex:' + d.sobra}));
+        var yr = (m === r[0] || m % 12 === 0) ? h('small', null, Math.floor(m / 12)) : null;
+        out.push(h('button', {type: 'button', class: 'mrow', 'aria-pressed': String(m === sel), 'aria-label': mLong(m) + ', sobra ' + money(d.sobra),
+          onclick: function(){ sel = m; render(); }},
+          h('span', {class: 'ml'}, mShort(m), yr),
+          h('span', {class: 'bar'}, segs),
+          h('span', {class: 'mv ' + t}, money(d.sobra))));
+      })(m);
+    }
+    $('months').replaceChildren.apply($('months'), out);
+  }
+
+  function sub(it){
+    var s = ym(it.inicio);
+    if(it.tipo === 'divida'){
+      var e = endOf(it);
+      return money(it.total) + ' em ' + nParc(it) + ' parcelas de ' + money(it.parcela) + ', de ' + mShort(s) + '/' + String(Math.floor(s / 12)).slice(2) + ' a ' + mShort(e) + '/' + String(Math.floor(e / 12)).slice(2);
+    }
+    var t = money(it.valor) + ' por mês, desde ' + mShort(s) + '/' + String(Math.floor(s / 12)).slice(2);
+    if(it.ate){ var a = ym(it.ate); t += ' até ' + mShort(a) + '/' + String(Math.floor(a / 12)).slice(2); }
+    return t;
+  }
+
+  function renderItems(){
+    var ul = $('items');
+    if(!state.items.length){ ul.replaceChildren(h('li', {class: 'empty-items'}, 'Nenhum gasto cadastrado. Adicione o primeiro abaixo.')); return; }
+    ul.replaceChildren.apply(ul, state.items.map(function(it){
+      var rm = h('button', {type: 'button', class: 'btn small', 'aria-label': 'Remover ' + it.nome}, 'Remover');
+      var armed = false, tm = null;
+      rm.addEventListener('click', function(){
+        if(!armed){
+          armed = true; rm.textContent = 'Confirmar remoção'; rm.classList.add('danger');
+          tm = setTimeout(function(){ armed = false; rm.textContent = 'Remover'; rm.classList.remove('danger'); }, 3000);
+          return;
+        }
+        clearTimeout(tm);
+        state.items = state.items.filter(function(x){ return x.id !== it.id; });
+        if(editingId === it.id) resetForm();
+        save(); render();
+      });
+      return h('li', null,
+        h('i', {class: 'sw', style: 'background:var(--s' + ((it.c % 8) + 1) + ')'}),
+        h('div', {class: 'txt'},
+          h('div', {class: 'nm'}, it.nome),
+          h('div', {class: 'sub'}, sub(it)),
+          h('div', {class: 'acts'},
+            h('button', {type: 'button', class: 'btn small', 'aria-label': 'Editar ' + it.nome, onclick: function(){ startEdit(it); }}, 'Editar'),
+            rm)));
+    }));
+  }
+
+  function yy(n){ return String(Math.floor(n / 12)).slice(2); }
+  function showTab(){
+    ['resumo', 'gastos', 'extra'].forEach(function(t){
+      $('p-' + t).hidden = t !== tab;
+      $('tab-' + t).setAttribute('aria-selected', String(t === tab));
+    });
+  }
+  function rmButton(label, onConfirm){
+    var b = h('button', {type: 'button', class: 'btn small', 'aria-label': label}, 'Remover');
+    var armed = false, tm = null;
+    b.addEventListener('click', function(){
+      if(!armed){
+        armed = true; b.textContent = 'Confirmar remoção'; b.classList.add('danger');
+        tm = setTimeout(function(){ armed = false; b.textContent = 'Remover'; b.classList.remove('danger'); }, 3000);
+        return;
+      }
+      clearTimeout(tm); onConfirm();
+    });
+    return b;
+  }
+  function xsub(x){
+    var s = ym(x.inicio);
+    if(x.tipo === 'unica') return money(x.valor) + ' uma vez, em ' + mShort(s) + '/' + yy(s);
+    var t = money(x.valor) + ' por mês, desde ' + mShort(s) + '/' + yy(s);
+    if(x.ate){ var a = ym(x.ate); t += ' até ' + mShort(a) + '/' + yy(a); }
+    return t;
+  }
+  function renderExtras(r){
+    var tot = 0, min = Infinity, rows = [];
+    for(var m = r[0]; m <= r[1]; m++){
+      var d = monthData(m); tot += d.extra; min = Math.min(min, d.sobra);
+      var yr = (m === r[0] || m % 12 === 0) ? h('small', null, Math.floor(m / 12)) : null;
+      rows.push(h('div', {class: 'xrow'},
+        h('span', {class: 'ml'}, mShort(m), yr),
+        h('span', {class: 'xv'}, d.extra > 0 ? '+' + money(d.extra) : 'sem extra'),
+        h('span', {class: 'mv', style: 'color:var(--' + tone(d.sobra) + ')'}, money(d.sobra))));
+    }
+    $('x-months').replaceChildren.apply($('x-months'), rows);
+    $('x-stats').replaceChildren(
+      h('div', {class: 'stat'}, h('div', {class: 'k'}, 'Renda extra no período'), h('div', {class: 'n'}, money(tot))),
+      h('div', {class: 'stat'}, h('div', {class: 'k'}, 'Menor sobra do período'), h('div', {class: 'n', style: 'color:var(--' + tone(min) + ')'}, money(min))));
+    var ul = $('x-items'), ex = state.extras || [];
+    if(!ex.length){
+      ul.replaceChildren(h('li', {class: 'empty-items'}, 'Nenhuma renda extra ainda. Adicione abaixo.'));
+      return;
+    }
+    ul.replaceChildren.apply(ul, ex.map(function(x){
+      return h('li', null,
+        h('i', {class: 'sw', style: 'background:var(--sobra)'}),
+        h('div', {class: 'txt'},
+          h('div', {class: 'nm'}, x.nome),
+          h('div', {class: 'sub'}, xsub(x)),
+          h('div', {class: 'acts'},
+            h('button', {type: 'button', class: 'btn small', 'aria-label': 'Editar ' + x.nome, onclick: function(){ xEdit(x); }}, 'Editar'),
+            rmButton('Remover ' + x.nome, function(){
+              state.extras = state.extras.filter(function(y){ return y.id !== x.id; });
+              if(xEditing === x.id) resetX();
+              save(); render();
+            }))));
+    }));
+  }
+  function setXTipo(t){
+    xtipo = t;
+    $('xt-mensal').setAttribute('aria-pressed', String(t === 'mensal'));
+    $('xt-unica').setAttribute('aria-pressed', String(t === 'unica'));
+    $('xg-ate').hidden = t !== 'mensal';
+  }
+  function resetX(){
+    xEditing = null; setXTipo('mensal');
+    ['x-nome', 'x-valor', 'x-ate'].forEach(function(id){ $(id).value = ''; });
+    $('x-inicio').value = state ? ymStr(windowRange()[0]) : '';
+    $('x-err').textContent = '';
+    $('x-submit').textContent = 'Adicionar';
+    $('x-cancel').hidden = true;
+    $('x-title').textContent = 'Adicionar renda extra';
+  }
+  function xEdit(x){
+    xEditing = x.id; setXTipo(x.tipo === 'unica' ? 'unica' : 'mensal');
+    $('x-nome').value = x.nome; $('x-valor').value = plain(x.valor);
+    $('x-inicio').value = x.inicio; $('x-ate').value = x.ate || '';
+    $('x-err').textContent = '';
+    $('x-submit').textContent = 'Salvar alterações';
+    $('x-cancel').hidden = false;
+    $('x-title').textContent = 'Editar ' + x.nome;
+    $('x-form').scrollIntoView({block: 'center'});
+    $('x-nome').focus();
+  }
+  function onXSubmit(e){
+    e.preventDefault();
+    var err = $('x-err'), nome = $('x-nome').value.trim(), v = parseMoney($('x-valor').value), inicio = $('x-inicio').value;
+    if(!nome){ err.textContent = 'Escreva de onde vem essa renda.'; $('x-nome').focus(); return; }
+    if(!(v > 0)){ err.textContent = 'Informe o valor, maior que zero.'; $('x-valor').focus(); return; }
+    if(!inicio){ err.textContent = 'Escolha o mês.'; $('x-inicio').focus(); return; }
+    var x = {id: xEditing || ('x' + Date.now().toString(36)), nome: nome, tipo: xtipo, valor: v, inicio: inicio};
+    var ate = $('x-ate').value;
+    if(xtipo === 'mensal' && ate){
+      if(ym(ate) < ym(inicio)){ err.textContent = 'O mês final não pode ser antes do início.'; $('x-ate').focus(); return; }
+      x.ate = ate;
+    }
+    var ex = state.extras || [];
+    state.extras = xEditing ? ex.map(function(y){ return y.id === xEditing ? x : y; }) : ex.concat([x]);
+    resetX(); save(); render();
+  }
+
+  function setTipo(t){
+    tipo = t;
+    $('t-fixo').setAttribute('aria-pressed', String(t === 'fixo'));
+    $('t-divida').setAttribute('aria-pressed', String(t === 'divida'));
+    $('g-fixo').hidden = t !== 'fixo';
+    $('g-ate').hidden = t !== 'fixo';
+    $('g-divida').hidden = t !== 'divida';
+  }
+  function resetForm(){
+    editingId = null; setTipo('fixo');
+    ['f-nome','f-valor','f-total','f-parcela','f-ate'].forEach(function(id){ $(id).value = ''; });
+    $('f-inicio').value = state ? ymStr(windowRange()[0]) : '';
+    $('f-err').textContent = '';
+    $('f-submit').textContent = 'Adicionar';
+    $('f-cancel').hidden = true;
+    $('form-title').textContent = 'Adicionar gasto ou dívida';
+  }
+  function startEdit(it){
+    editingId = it.id; setTipo(it.tipo);
+    $('f-nome').value = it.nome;
+    $('f-valor').value = it.tipo === 'fixo' ? plain(it.valor) : '';
+    $('f-total').value = it.tipo === 'divida' ? plain(it.total) : '';
+    $('f-parcela').value = it.tipo === 'divida' ? plain(it.parcela) : '';
+    $('f-inicio').value = it.inicio;
+    $('f-ate').value = it.ate || '';
+    $('f-err').textContent = '';
+    $('f-submit').textContent = 'Salvar alterações';
+    $('f-cancel').hidden = false;
+    $('form-title').textContent = 'Editar ' + it.nome;
+    $('form').scrollIntoView({block: 'center'});
+    $('f-nome').focus();
+  }
+  function nextColor(){
+    var used = {};
+    state.items.forEach(function(x){ used[x.c] = true; });
+    for(var i = 0; i < 8; i++) if(!used[i]) return i;
+    return state.items.length % 8;
+  }
+
+  function onSubmit(e){
+    e.preventDefault();
+    var err = $('f-err'), nome = $('f-nome').value.trim(), inicio = $('f-inicio').value;
+    if(!nome){ err.textContent = 'Escreva o nome do gasto.'; $('f-nome').focus(); return; }
+    if(!inicio){ err.textContent = 'Escolha o mês em que começa.'; $('f-inicio').focus(); return; }
+    var it = {id: editingId || ('i' + Date.now().toString(36)), nome: nome, tipo: tipo, inicio: inicio};
+    if(tipo === 'fixo'){
+      var v = parseMoney($('f-valor').value);
+      if(!(v > 0)){ err.textContent = 'Informe o valor por mês, maior que zero.'; $('f-valor').focus(); return; }
+      it.valor = v;
+      var ate = $('f-ate').value;
+      if(ate){
+        if(ym(ate) < ym(inicio)){ err.textContent = 'O mês final não pode ser antes do início.'; $('f-ate').focus(); return; }
+        it.ate = ate;
+      }
+    } else {
+      var tot = parseMoney($('f-total').value), par = parseMoney($('f-parcela').value);
+      if(!(tot > 0)){ err.textContent = 'Informe o valor total da dívida.'; $('f-total').focus(); return; }
+      if(!(par > 0)){ err.textContent = 'Informe o valor da parcela.'; $('f-parcela').focus(); return; }
+      it.total = tot; it.parcela = Math.min(par, tot);
+    }
+    if(editingId){
+      var old = state.items.filter(function(x){ return x.id === editingId; })[0];
+      it.c = old ? old.c : nextColor();
+      state.items = state.items.map(function(x){ return x.id === editingId ? it : x; });
+    } else { it.c = nextColor(); state.items = state.items.concat([it]); }
+    sel = ym(inicio) < windowRange()[0] ? windowRange()[0] : sel;
+    resetForm(); save(); render();
+  }
+
+  function bindMoney(id, key){
+    $(id).addEventListener('input', function(){
+      var v = parseMoney(this.value);
+      if(isNaN(v) || v < 0) return;
+      state[key] = v; save(); render();
+    });
+    $(id).addEventListener('blur', function(){ syncInputs(); });
+  }
+
+  var resetArmed = false, resetTimer = null;
+  $('reset').addEventListener('click', function(){
+    var b = this;
+    if(!resetArmed){
+      resetArmed = true; b.textContent = 'Confirmar: apaga as mudanças';
+      resetTimer = setTimeout(function(){ resetArmed = false; b.textContent = 'Restaurar plano inicial'; }, 3500);
+      return;
+    }
+    clearTimeout(resetTimer); resetArmed = false; b.textContent = 'Restaurar plano inicial';
+    state = clone(DEFAULT); sel = null; resetForm(); resetX(); save(); render();
+  });
+  $('seed').addEventListener('click', function(){
+    state = clone(DEFAULT); phase = 'done'; resetForm(); save(); render();
+  });
+  $('t-fixo').addEventListener('click', function(){ setTipo('fixo'); });
+  $('t-divida').addEventListener('click', function(){ setTipo('divida'); });
+  $('f-cancel').addEventListener('click', resetForm);
+  $('form').addEventListener('submit', onSubmit);
+  bindMoney('renda', 'renda'); bindMoney('cartao', 'cartao');
+  ['resumo', 'gastos', 'extra'].forEach(function(t){
+    $('tab-' + t).addEventListener('click', function(){ tab = t; showTab(); });
+  });
+  $('xt-mensal').addEventListener('click', function(){ setXTipo('mensal'); });
+  $('xt-unica').addEventListener('click', function(){ setXTipo('unica'); });
+  $('x-cancel').addEventListener('click', resetX);
+  $('x-form').addEventListener('submit', onXSubmit);
+
+  // Alterado para redirect para funcionar perfeitamente em telemóveis
+  $('google-login-btn').addEventListener('click', function(){
+    var provider = new GoogleAuthProvider();
+    signInWithRedirect(auth, provider);
+  });
+
+  $('logout-btn').addEventListener('click', handleLogout);
+
+  // Trata o retorno do login por redirecionamento
+  getRedirectResult(auth).catch(function(error){
+    alert('Erro no login: ' + error.message);
+  });
+
+  onAuthStateChanged(auth, function(user){
+    if(user){
+      setupCloudSync(user);
+    } else {
+      handleLogout();
+    }
+  });
+
+})();
+</script>
+
+</body></html>
