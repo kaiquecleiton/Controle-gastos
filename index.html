@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -220,7 +219,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const $ = id => document.getElementById(id);
 
-/* Plano inicial: as sete categorias começam com valor zero. */
+/* Plano inicial: as quatro categorias começam com valor zero. */
 const DEFAULT = {
   renda: 3100,
   extras: [],
@@ -228,12 +227,12 @@ const DEFAULT = {
     {id:"aluguel",nome:"Aluguel",tipo:"fixo",valor:0,inicio:"2026-11",c:0},
     {id:"luz",nome:"Luz",tipo:"fixo",valor:0,inicio:"2026-11",c:1},
     {id:"agua",nome:"Água",tipo:"fixo",valor:0,inicio:"2026-11",c:2},
-    {id:"internet",nome:"Internet",tipo:"fixo",valor:0,inicio:"2026-11",c:3},
-    {id:"moto",nome:"Moto",tipo:"fixo",valor:0,inicio:"2026-11",c:4},
-    {id:"mae",nome:"Mãe",tipo:"fixo",valor:0,inicio:"2026-11",c:5},
-    {id:"irmao",nome:"Irmão",tipo:"fixo",valor:0,inicio:"2026-11",c:6}
+    {id:"internet",nome:"Internet",tipo:"fixo",valor:0,inicio:"2026-11",c:3}
   ]
 };
+
+/* Categorias removidas do plano (também apagadas de contas já salvas). */
+const REMOVIDOS=["moto","mae","irmao"];
 
 const MES=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
 const fmt0=new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0});
@@ -420,11 +419,13 @@ async function googleLogin(){
   await withAuthButton("google-login-btn","Abrindo Google…",()=>signInWithPopup(auth,new GoogleAuthProvider()));
 }
 
-/* Migra o item antigo combinado em quatro categorias independentes.
+/* Migra o item antigo combinado em quatro categorias independentes
+   e remove as categorias descartadas (Moto, Mãe, Irmão).
    Os outros lançamentos e as rendas extras existentes são preservados. */
 function normalizeSavedData(d){
-  const items=Array.isArray(d.items)?d.items.map(x=>({...x})):[];
+  let items=Array.isArray(d.items)?d.items.map(x=>({...x})):[];
   const extras=Array.isArray(d.extras)?d.extras.map(x=>({...x})):[];
+  items=items.filter(x=>!REMOVIDOS.includes(x.id));
   const combinedIndex=items.findIndex(x=>
     x.id==="moradia"||
     /aluguel.*luz.*[áa]gua.*internet/i.test(String(x.nome||""))
@@ -469,12 +470,14 @@ function setupCloudSync(user){
       state=normalizeSavedData(d);
       phase="done";
       setStatus("Tudo guardado");
-      const hadCombined=Array.isArray(d.items)&&d.items.some(x=>
-        x.id==="moradia"||/aluguel.*luz.*[áa]gua.*internet/i.test(String(x.nome||""))
+      const needsSave=d.items.some(x=>
+        x.id==="moradia"||
+        REMOVIDOS.includes(x.id)||
+        /aluguel.*luz.*[áa]gua.*internet/i.test(String(x.nome||""))
       );
       cloudLoaded=true;
       render();
-      if(hadCombined)save();
+      if(needsSave)save();
     }else{
       state=null;
       phase="done";
